@@ -23,7 +23,7 @@ function SettingsPage() {
 
   const backup = async () => {
     const bytes = await exportBackup();
-    const blob = new Blob([bytes], { type: "application/octet-stream" });
+    const blob = new Blob([bytes.slice().buffer], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
