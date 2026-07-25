@@ -1,29 +1,62 @@
-# Welcome to your Lovable project
+# AL SHIMY — نظام إدارة نقطة البيع والمخزون
 
-This project was built with [Lovable](https://lovable.dev).
+نظام محاسبي ومبيعات ومخزون احترافي لمحل **AL SHIMY** للأحذية.
+يعمل بالكامل **بدون إنترنت** باستخدام قاعدة بيانات **SQLite** محلية.
 
-## Build with Lovable
+- 🇪🇬 عملة: الجنيه المصري (EGP)
+- 🈷 اللغة: العربية (RTL)
+- 💾 قاعدة بيانات: SQLite (sql.js + IndexedDB في الويب / ملف .sqlite في Electron)
+- 🖥️ ينبني كتطبيق ويندوز عبر Electron
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+## المميزات
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- لوحة تحكم مع رسوم بيانية للمبيعات والأرباح والمشتريات
+- نقطة بيع (POS) بماسح باركود + طباعة فاتورة
+- إدارة كاملة للمنتجات (أحذية / شباشب / أحزمة)
+- المخزون: تنبيهات المنتجات قاربت على النفاد، قيمة المخزون
+- المشتريات من الموردين مع تحديث المخزون تلقائياً
+- الموردين: احتساب المستحقات لكل مورد + تسجيل الدفعات
+- المصروفات (إيجار، كهرباء، مرتبات، ...)
+- التقارير (يومي / أمس / أسبوعي / شهري / سنوي) + تصدير CSV
+- التحليل الذكي: الأعلى مبيعاً، الأعلى ربحاً، المنتجات الراكدة، توصيات
+- الملخص المالي وتقفيلة اليوم
+- نسخ احتياطي واستعادة قاعدة البيانات
 
-## Development
+## التطوير (Web)
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```bash
+bun install
+bun run dev
 ```
 
-## Built with
+افتح <http://localhost:8080>.
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+## بناء تطبيق ويندوز (Electron EXE)
+
+```bash
+# 1) بناء الواجهة
+bun run build
+
+# 2) تثبيت Electron packager
+npm install --save-dev electron @electron/packager
+
+# 3) بناء التطبيق (Windows)
+npx @electron/packager . "AL-SHIMY" \
+  --platform=win32 --arch=x64 \
+  --out=electron-release --overwrite \
+  --ignore='^/src' --ignore='^/public' --ignore='^/electron-release'
+```
+
+سيتم إنشاء مجلد `electron-release/AL-SHIMY-win32-x64/` يحوي `AL-SHIMY.exe`.
+انسخ المجلد كاملاً على أي جهاز ويندوز وشغّل الملف مباشرة — بدون تثبيت.
+
+## البيانات
+
+- في المتصفح: تُخزن في IndexedDB (localforage) — تبقى بعد إغلاق المتصفح.
+- في Electron: نفس النموذج (IndexedDB داخل نافذة Chromium الخاصة بالتطبيق).
+- يمكن دائماً تنزيل ملف `.sqlite` من صفحة "الإعدادات" واستعادته لاحقاً.
+
+## بيانات الدخول التجريبية
+
+يبدأ النظام تلقائياً بموردَين وأربعة منتجات تجريبية لتجربة سريعة.
+اذهب إلى **الإعدادات → تصفير قاعدة البيانات** لتصفير كل شيء وبدء استخدام حقيقي.
