@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { getDb, query, subscribe } from "./db";
 
 export function useQuery<T = Record<string, unknown>>(
@@ -9,23 +9,66 @@ export function useQuery<T = Record<string, unknown>>(
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const run = useCallback(async () => {
-    await getDb();
-    const r = await query<T>(sql, params);
-    setData(r);
-    setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sql, JSON.stringify(params), ...deps]);
+  // debounce timer so rapid changes (like typing) don't trigger blocking SQL.js queries on every keystroke
+  const timerRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
+  // create stable keys for params and deps to use in the effect deps
+  const paramsKey = JSON.stringify(params);
+  const depsKey = JSON.stringify(deps);
+  const key = `${sql}::${paramsKey}::${depsKey}`;
+
+  // perform the actual query (synchronous sql.js operations happen inside but are called less frequently)
+  const fetchNow = async () => {
+    try {
+      await getDb();
+      const r = await query<T>(sql, params);
+      if (!mountedRef.current) return;
+      setData(r);
+      setLoading(false);
+    } catch (e) {
+      // swallow errors here to avoid breaking render — the app can handle empty/failed queries
+      console.error("useQuery fetch error:", e);
+      if (!mountedRef.current) return;
+      setLoading(false);
+    }
+  };
+
+  // schedule a debounced fetch; delay chosen small so UI feels responsive but avoids blocking on every keystroke
+  const scheduleFetch = (delay = 120) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    // window.setTimeout returns a number id
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      fetchNow();
+    }, delay) as unknown as number;
+  };
 
   useEffect(() => {
-    run();
+    mountedRef.current = true;
+    setLoading(true);
+    // initial fetch is debounced slightly to avoid blocking during rapid UI updates
+    scheduleFetch(80);
+
+    // subscribe to DB changes — when notified we schedule a debounced fetch
     const unsub = subscribe(() => {
-      run();
+      // schedule fetch with a slightly larger delay to coalesce rapid writes
+      scheduleFetch(120);
     });
+
     return () => {
+      mountedRef.current = false;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
       unsub();
     };
-  }, [run]);
+    // key intentionally includes params and deps so effect reruns only when query parameters change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
-  return { data, loading, refresh: run };
+  return { data, loading, refresh: fetchNow };
 }
