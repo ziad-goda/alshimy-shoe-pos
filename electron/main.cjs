@@ -1,5 +1,4 @@
-// Electron main process for AL SHIMY POS.
-// Loads the built Vite SPA locally. Requires `base: './'` in vite.config.ts.
+// Electron main process for AL SHIMY POS — loads the client-only Electron build.
 const { app, BrowserWindow, Menu } = require("electron");
 const path = require("path");
 
@@ -19,7 +18,13 @@ function createWindow() {
   });
 
   Menu.setApplicationMenu(null);
-  win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+
+  const devUrl = process.env.ELECTRON_START_URL;
+  if (devUrl) {
+    win.loadURL(devUrl);
+  } else {
+    win.loadFile(path.join(__dirname, "..", "dist-electron", "electron.html"));
+  }
 }
 
 app.whenReady().then(createWindow);
