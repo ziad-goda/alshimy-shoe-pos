@@ -9,7 +9,12 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "electron:dev": "vite --config vite.electron.config.ts",
+    "electron:build": "vite build --config vite.electron.config.ts",
+    "electron:start": "electron electron/main.cjs",
+    "electron:run": "npm run electron:build && electron electron/main.cjs",
+    "electron:package": "npm run electron:build && electron-packager . AL-SHIMY-POS --platform=win32 --arch=x64 --out=electron-release --overwrite --ignore=\"^/src\" --ignore=\"^/public\" --ignore=\"^/dist$\" --ignore=\"^/electron-release\" --ignore=\"^/node_modules/(?!(electron|sql\\.js|localforage)).*\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
