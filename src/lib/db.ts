@@ -104,7 +104,7 @@ export async function getDb(): Promise<Database> {
   if (db) return db;
   if (ready) return ready;
   ready = (async () => {
-    SQL = await initSqlJs({ locateFile: () => "/sql-wasm.wasm" });
+    SQL = await initSqlJs({ locateFile: () => new URL("sql-wasm.wasm", document.baseURI).href });
     const saved = await localforage.getItem<Uint8Array>(STORAGE_KEY);
     db = saved ? new SQL.Database(new Uint8Array(saved)) : new SQL.Database();
     db.run(SCHEMA);
@@ -169,7 +169,7 @@ export async function exportBackup(): Promise<Uint8Array> {
 }
 
 export async function restoreBackup(bytes: Uint8Array) {
-  if (!SQL) SQL = await initSqlJs({ locateFile: () => "/sql-wasm.wasm" });
+  if (!SQL) SQL = await initSqlJs({ locateFile: () => new URL("sql-wasm.wasm", document.baseURI).href });
   db = new SQL.Database(new Uint8Array(bytes));
   await persist();
 }
