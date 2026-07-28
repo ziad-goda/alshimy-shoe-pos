@@ -256,13 +256,13 @@ export async function queryOne<T = Record<string, unknown>>(
 export async function exportBackup(): Promise<Uint8Array> {
   if (isTauri) {
     // Read the SQLite file from the Tauri app-data directory.
-    const [{ appDataDir, join }, { readFile }] = await Promise.all([
-      import("@tauri-apps/api/path"),
-      import("@tauri-apps/plugin-fs"),
+    const [pathMod, fsMod] = await Promise.all([
+      import(/* @vite-ignore */ "@tauri-apps/api/path" as any) as Promise<any>,
+      import(/* @vite-ignore */ "@tauri-apps/plugin-fs" as any) as Promise<any>,
     ]);
-    const dir = await appDataDir();
-    const path = await join(dir, "alshimy.db");
-    const bytes = await readFile(path);
+    const dir = await pathMod.appDataDir();
+    const path = await pathMod.join(dir, "alshimy.db");
+    const bytes = await fsMod.readFile(path);
     return new Uint8Array(bytes);
   }
   const d = await initWeb();
