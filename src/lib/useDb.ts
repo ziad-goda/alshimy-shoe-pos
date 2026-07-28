@@ -26,7 +26,7 @@ export function useQuery<T = Record<string, unknown>>(
       // give the browser a chance to finish current input events and render work
       if (typeof window !== "undefined") {
         if ("requestIdleCallback" in window) {
-          await new Promise((res) => (window as any).requestIdleCallback(() => res(), { timeout: 50 }));
+          await new Promise<void>((res) => (window as any).requestIdleCallback(() => res(), { timeout: 50 }));
         } else {
           await new Promise((res) => setTimeout(res, 0));
         }
