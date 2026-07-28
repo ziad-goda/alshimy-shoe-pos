@@ -290,7 +290,7 @@ export async function restoreBackup(bytes: Uint8Array): Promise<void> {
       tauriDb = null;
       tauriReady = null;
     }
-    await writeFile(path, bytes);
+    await fsMod.writeFile(path, bytes);
     await initTauri(); // reopen
     notify();
     return;
