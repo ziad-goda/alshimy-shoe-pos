@@ -207,9 +207,15 @@ async function initWeb(): Promise<SqlJsDatabase> {
 // PUBLIC API — identical shape across runtimes
 // ===========================================================================
 
-/** Returns the underlying database handle (opaque). */
-export async function getDb(): Promise<unknown> {
-  return isTauri ? initTauri() : initWeb();
+/**
+ * Returns the underlying database handle.
+ * NOTE: In the web runtime this is a sql.js `Database` (has `.prepare`, `.run`,
+ * `.exec`). In the Tauri runtime the raw handle is different — call sites that
+ * need portability should use `query` / `exec` / `queryOne` instead of the
+ * returned handle directly.
+ */
+export async function getDb(): Promise<SqlJsDatabase> {
+  return (isTauri ? (initTauri() as unknown as Promise<SqlJsDatabase>) : initWeb());
 }
 
 /** Run a write / DDL statement. */
