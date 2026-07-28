@@ -19,8 +19,19 @@ export function useQuery<T = Record<string, unknown>>(
   const key = `${sql}::${paramsKey}::${depsKey}`;
 
   // perform the actual query (synchronous sql.js operations happen inside but are called less frequently)
+  // we yield to the event loop / requestIdleCallback before executing heavy SQL work so input event handlers
+  // complete and the UI stays responsive in packaged environments.
   const fetchNow = async () => {
     try {
+      // give the browser a chance to finish current input events and render work
+      if (typeof window !== "undefined") {
+        if ("requestIdleCallback" in window) {
+          await new Promise((res) => (window as any).requestIdleCallback(() => res(), { timeout: 50 }));
+        } else {
+          await new Promise((res) => setTimeout(res, 0));
+        }
+      }
+
       await getDb();
       const r = await query<T>(sql, params);
       if (!mountedRef.current) return;
@@ -39,10 +50,10 @@ export function useQuery<T = Record<string, unknown>>(
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
-    // window.setTimeout returns a number id
+    // use setTimeout to debounce; this also yields to the main loop
     timerRef.current = window.setTimeout(() => {
       timerRef.current = null;
-      fetchNow();
+      void fetchNow();
     }, delay) as unknown as number;
   };
 
