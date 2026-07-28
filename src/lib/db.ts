@@ -144,7 +144,9 @@ async function initTauri(): Promise<TauriDb> {
   if (tauriDb) return tauriDb;
   if (tauriReady) return tauriReady;
   tauriReady = (async () => {
-    const { default: Database } = await import("@tauri-apps/plugin-sql");
+    // @ts-ignore — resolved at runtime inside the Tauri build only
+    const mod = await import(/* @vite-ignore */ "@tauri-apps/plugin-sql");
+    const Database = (mod as any).default;
     const d = (await Database.load(TAURI_DB_URL)) as unknown as TauriDb;
 
     // Apply schema
