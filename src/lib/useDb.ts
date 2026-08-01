@@ -1,85 +1,81 @@
-import { useEffect, useState, useRef } from "react";
-import { getDb, query, subscribe } from "./db";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { query, subscribe } from "./db";
 
+/**
+ * Reactive SQL query hook.
+ *
+ * - Re-runs ONLY when the SQL text or the serialized params change, or when the
+ *   database notifies a write. It never re-runs because of a new array identity,
+ *   so it cannot cause an infinite render loop.
+ * - Writes/keystrokes are debounced and stale responses are discarded via a
+ *   monotonically increasing run id.
+ */
 export function useQuery<T = Record<string, unknown>>(
   sql: string,
   params: unknown[] = [],
-  deps: unknown[] = []
+  deps: unknown[] = [],
 ) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // debounce timer so rapid changes (like typing) don't trigger blocking SQL.js queries on every keystroke
-  const timerRef = useRef<number | null>(null);
+  const paramsKey = JSON.stringify(params) + "::" + JSON.stringify(deps);
+
+
+  // Keep the latest values without making them effect dependencies.
+  const sqlRef = useRef(sql);
+  const paramsRef = useRef(params);
+  sqlRef.current = sql;
+  paramsRef.current = params;
+
+  const runIdRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
-  // create stable keys for params and deps to use in the effect deps
-  const paramsKey = JSON.stringify(params);
-  const depsKey = JSON.stringify(deps);
-  const key = `${sql}::${paramsKey}::${depsKey}`;
-
-  // perform the actual query (synchronous sql.js operations happen inside but are called less frequently)
-  // we yield to the event loop / requestIdleCallback before executing heavy SQL work so input event handlers
-  // complete and the UI stays responsive in packaged environments.
-  const fetchNow = async () => {
+  const run = useCallback(async () => {
+    const id = ++runIdRef.current;
     try {
-      // give the browser a chance to finish current input events and render work
-      if (typeof window !== "undefined") {
-        if ("requestIdleCallback" in window) {
-          await new Promise<void>((res) => (window as any).requestIdleCallback(() => res(), { timeout: 50 }));
-        } else {
-          await new Promise((res) => setTimeout(res, 0));
-        }
-      }
-
-      await getDb();
-      const r = await query<T>(sql, params);
-      if (!mountedRef.current) return;
-      setData(r);
-      setLoading(false);
+      const rows = await query<T>(sqlRef.current, paramsRef.current);
+      if (!mountedRef.current || id !== runIdRef.current) return;
+      setData(rows);
     } catch (e) {
-      // swallow errors here to avoid breaking render — the app can handle empty/failed queries
-      console.error("useQuery fetch error:", e);
-      if (!mountedRef.current) return;
-      setLoading(false);
+      console.error("useQuery error:", e);
+    } finally {
+      if (mountedRef.current && id === runIdRef.current) setLoading(false);
     }
-  };
+  }, []);
 
-  // schedule a debounced fetch; delay chosen small so UI feels responsive but avoids blocking on every keystroke
-  const scheduleFetch = (delay = 120) => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-    }
-    // use setTimeout to debounce; this also yields to the main loop
-    timerRef.current = window.setTimeout(() => {
-      timerRef.current = null;
-      void fetchNow();
-    }, delay) as unknown as number;
-  };
+  const schedule = useCallback(
+    (delay: number) => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        void run();
+      }, delay);
+    },
+    [run],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
-    setLoading(true);
-    // initial fetch is debounced slightly to avoid blocking during rapid UI updates
-    scheduleFetch(80);
-
-    // subscribe to DB changes — when notified we schedule a debounced fetch
-    const unsub = subscribe(() => {
-      // schedule fetch with a slightly larger delay to coalesce rapid writes
-      scheduleFetch(120);
-    });
-
     return () => {
       mountedRef.current = false;
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  // Fetch on query/params change.
+  useEffect(() => {
+    schedule(60);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sql, paramsKey]);
+
+  // Refetch on database writes.
+  useEffect(() => {
+    const unsub = subscribe(() => schedule(120));
+    return () => {
       unsub();
     };
-    // key intentionally includes params and deps so effect reruns only when query parameters change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [schedule]);
 
-  return { data, loading, refresh: fetchNow };
+  return { data, loading, refresh: run };
 }
