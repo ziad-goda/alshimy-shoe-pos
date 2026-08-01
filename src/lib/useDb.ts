@@ -10,11 +10,16 @@ import { query, subscribe } from "./db";
  * - Writes/keystrokes are debounced and stale responses are discarded via a
  *   monotonically increasing run id.
  */
-export function useQuery<T = Record<string, unknown>>(sql: string, params: unknown[] = []) {
+export function useQuery<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = [],
+  deps: unknown[] = [],
+) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const paramsKey = JSON.stringify(params);
+  const paramsKey = JSON.stringify(params) + "::" + JSON.stringify(deps);
+
 
   // Keep the latest values without making them effect dependencies.
   const sqlRef = useRef(sql);
